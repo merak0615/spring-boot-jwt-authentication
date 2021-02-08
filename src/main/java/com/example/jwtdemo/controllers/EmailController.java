@@ -3,7 +3,6 @@ package com.example.jwtdemo.controllers;
 import com.example.jwtdemo.models.PasswordResetToken;
 import com.example.jwtdemo.models.User;
 import com.example.jwtdemo.models.VerificationToken;
-import com.example.jwtdemo.payload.request.ResetRequest;
 import com.example.jwtdemo.payload.response.MessageResponse;
 import com.example.jwtdemo.service.EmailService;
 import com.example.jwtdemo.service.PasswordResetTokenService;
@@ -13,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
 import java.sql.Timestamp;
 import java.util.UUID;
 
@@ -84,31 +82,5 @@ public class EmailController {
         }
 
         return ResponseEntity.ok(new MessageResponse("Your message has been sent"));
-    }
-
-    @PostMapping("/passwordreset")
-    public ResponseEntity<?> showChangePasswordPage(@Valid @RequestBody ResetRequest resetRequest) {
-        PasswordResetToken passwordResetToken = passwordResetTokenService.findByToken(resetRequest.getToken());
-
-        if (passwordResetToken == null) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(new MessageResponse("Your passwordReset token is invalid"));
-        } else {
-            Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
-            if (passwordResetToken.getExpiryDate().before(currentTimestamp)) {
-                return ResponseEntity
-                        .badRequest()
-                        .body(new MessageResponse("Your passwordReset token is expired"));
-            } else {
-                //user password has already changed
-                User user = passwordResetTokenService.getUserByPasswordResetToken(resetRequest.getToken());
-                userService.changeUserPassword(user, resetRequest.getPassword());
-
-                //delete passwordReset Token
-                passwordResetTokenService.deleteByToken(resetRequest.getToken());
-                return ResponseEntity.ok(new MessageResponse("Your password has already been changed"));
-            }
-        }
     }
 }

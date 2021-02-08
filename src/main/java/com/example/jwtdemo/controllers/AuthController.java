@@ -7,18 +7,17 @@ import java.util.stream.Collectors;
 import javax.validation.Valid;
 
 import com.example.jwtdemo.models.ERole;
+import com.example.jwtdemo.models.PasswordResetToken;
 import com.example.jwtdemo.models.Role;
 import com.example.jwtdemo.models.User;
 import com.example.jwtdemo.payload.request.LoginRequest;
+import com.example.jwtdemo.payload.request.PasswordRequest;
 import com.example.jwtdemo.payload.request.SignupRequest;
 import com.example.jwtdemo.payload.response.JwtResponse;
 import com.example.jwtdemo.payload.response.MessageResponse;
 import com.example.jwtdemo.security.jwt.JwtUtils;
 import com.example.jwtdemo.security.services.*;
-import com.example.jwtdemo.service.EmailService;
-import com.example.jwtdemo.service.RoleService;
-import com.example.jwtdemo.service.UserService;
-import com.example.jwtdemo.service.VerificationTokenService;
+import com.example.jwtdemo.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,19 +36,22 @@ public class AuthController {
     AuthenticationManager authenticationManager;
 
     @Autowired
-    UserService userService;
-
-    @Autowired
-    RoleService roleService;
-
-    @Autowired
     PasswordEncoder encoder;
 
     @Autowired
     JwtUtils jwtUtils;
 
     @Autowired
+    UserService userService;
+
+    @Autowired
+    RoleService roleService;
+
+    @Autowired
     VerificationTokenService verificationTokenService;
+
+    @Autowired
+    PasswordResetTokenService passwordResetTokenService;
 
     @Autowired
     EmailService emailService;
@@ -138,5 +140,31 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(new MessageResponse("Your account has been successfully created!"));
+    }
+
+    @PatchMapping("/updatepassword/{token}")
+    public ResponseEntity<?> testPatch(@PathVariable("token") String token, @Valid @RequestBody PasswordRequest passwordRequest) {
+        PasswordResetToken passwordResetToken = passwordResetTokenService.findByToken(token);
+
+        if (passwordResetToken == null) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(new MessageResponse("Your passwordReset token is invalid"));
+        } else {
+            Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
+            if (passwordResetToken.getExpiryDate().before(currentTimestamp)) {
+                return ResponseEntity
+                        .badRequest()
+                        .body(new MessageResponse("Your passwordReset token is expired"));
+            } else {
+                //user password has already changed
+                User user = passwordResetTokenService.getUserByPasswordResetToken(token);
+                userService.changeUserPassword(user, passwordRequest.getPassword());
+
+                //delete passwordReset Token
+                passwordResetTokenService.deleteByToken(token);
+                return ResponseEntity.ok(new MessageResponse("Your password has already been changed"));
+            }
+        }
     }
 }
